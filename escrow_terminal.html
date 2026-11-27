@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOID-ESCROW // Pihak Ketiga Terenkripsi v4.09</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Monospace & Cyber -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['"JetBrains Mono"', '"Share Tech Mono"', 'monospace'],
+                        cyber: ['"Share Tech Mono"', 'monospace'],
+                    },
+                    colors: {
+                        void: '#040605',
+                        panel: '#090e0c',
+                        panelLight: '#0e1613',
+                        neonGreen: '#00ff41',
+                        neonCyan: '#00f3ff',
+                        neonAmber: '#ffb000',
+                        neonRed: '#ff2a55',
+                        borderDim: '#162820',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        :root {
+            --neon-green: #00ff41;
+            --neon-cyan: #00f3ff;
+            --bg-void: #040605;
+        }
+
+        body {
+            background-color: var(--bg-void);
+            color: #c8f7d6;
+            font-family: 'JetBrains Mono', monospace;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 0%, rgba(0, 255, 65, 0.06) 0%, transparent 55%),
+                linear-gradient(rgba(0, 255, 65, 0.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 65, 0.025) 1px, transparent 1px);
+            background-size: 100% 100%, 28px 28px, 28px 28px;
+        }
+
+        /* Efek Scanline CRT Halus */
+        .crt-scanlines {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 50;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.28) 50%
+            );
+            background-size: 100% 4px;
+            opacity: 0.45;
+        }
+
+        /* Glow Borders & Text */
+        .cyber-box {
+            background: rgba(9, 14, 12, 0.92);
+            border: 1px solid #172e24;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.85), inset 0 0 12px rgba(0, 255, 65, 0.03);
+            backdrop-filter: blur(6px);
+        }
+
+        .cyber-box:hover {
+            border-color: rgba(0, 255, 65, 0.35);
+        }
+
+        .neon-text-green {
+            color: #00ff41;
+            text-shadow: 0 0 8px rgba(0, 255, 65, 0.45);
+        }
+
+        .neon-text-cyan {
+            color: #00f3ff;
+            text-shadow: 0 0 8px rgba(0, 243, 255, 0.45);
+        }
+
+        .cyber-input {
+            background: #030504;
+            border: 1px solid #1b382b;
+            color: #00ff41;
+            transition: all 0.2s ease;
+        }
+
+        .cyber-input:focus {
+            outline: none;
+            border-color: #00ff41;
+            box-shadow: 0 0 12px rgba(0, 255, 65, 0.25);
+        }
+
+        .cyber-input::placeholder {
+            color: #2f5745;
+        }
+
+        .cyber-btn {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .cyber-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #040605;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #183629;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00ff41;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .blink-dot {
+            animation: pulseGlow 1.5s infinite ease-in-out;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+        .shake-error {
+            animation: shake 0.35s ease-in-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-neonGreen selection:text-black">
+
+    <!-- Efek Scanline Layar -->
+    <div class="crt-scanlines"></div>
+
+    <!-- ===================================================================== -->
+    <!-- TOAST / NOTIFICATION BANNER (PENGGANTI ALERT)                         -->
+    <!-- ===================================================================== -->
+    <div id="toast-container" class="fixed top-4 right-4 z-[100] flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+    <!-- ===================================================================== -->
+    <!-- GERBANG LOGIN EKSKLUSIF (TANPA OPSI DAFTAR / TAMBAH AKUN)             -->
+    <!-- ===================================================================== -->
+    <section id="login-screen" class="min-h-screen flex items-center justify-center p-4 relative z-10">
+        <div id="login-card" class="cyber-box rounded-lg w-full max-w-md p-6 sm:p-8 border-t-2 border-t-neonGreen">
+            <!-- Header Terminal -->
+            <div class="flex items-center justify-between border-b border-borderDim pb-4 mb-6">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-neonGreen blink-dot"></span>
+                    <span class="text-xs tracking-widest text-emerald-400/80 uppercase">ONION NODE // 0x9F8A</span>
+                </div>
+                <span class="text-[11px] px-2 py-0.5 rounded bg-emerald-950/70 border border-emerald-700/40 text-neonGreen">
+                    AES-256-GCM
+                </span>
+            </div>
+
+            <!-- Logo & Judul -->
+            <div class="text-center mb-7">
+                <div class="inline-flex items-center justify-center w-14 h-14 rounded-lg bg-emerald-950/60 border border-neonGreen/40 mb-3 shadow-[0_0_20px_rgba(0,255,65,0.15)]">
+                    <i data-lucide="shield-check" class="w-8 h-8 text-neonGreen"></i>
+                </div>
+                <h1 class="text-2xl font-extrabold tracking-wider neon-text-green font-cyber">
+                    VOID<span class="text-neonCyan">_</span>ESCROW
+                </h1>
+                <p class="text-xs text-emerald-500/80 mt-1">
+                    PROTOKOL PIHAK KETIGA ANTI-PENIPUAN TERENKRIPSI
+                </p>
+            </div>
+
+            <!-- Pesan Status Terminal Login -->
+            <div id="login-terminal-msg" class="mb-5 p-3 rounded bg-black/80 border border-borderDim text-xs text-emerald-400/90 font-mono leading-relaxed">
+                <span class="text-neonCyan">[SYS]</span> Otorisasi operator tunggal diperlukan.<br>
+                <span class="text-emerald-600">&gt; Pendaftaran akun baru dinonaktifkan secara permanen.</span>
+            </div>
+
+            <!-- Form Login -->
+            <form id="login-form" class="space-y-4" autocomplete="off">
+                <div>
+                    <label for="username" class="block text-xs uppercase tracking-wider text-emerald-400 mb-1.5">
+                        ID OPERATOR
+                    </label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-emerald-600">
+                            <i data-lucide="terminal" class="w-4 h-4"></i>
+                        </span>
+                        <input 
+                            type="text" 
+                            id="username" 
+                            required
+                            placeholder="Masukkan ID Operator..." 
+                            class="cyber-input w-full pl-10 pr-4 py-3 rounded text-sm"
+                        >
+                    </div>
+                </div>
+
+                <div>
+                    <label for="password" class="block text-xs uppercase tracking-wider text-emerald-400 mb-1.5">
+                        KUNCI AKSES (PASSPHRASE)
+                    </label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-emerald-600">
+                            <i data-lucide="key-round" class="w-4 h-4"></i>
+                        </span>
+                        <input 
+                            type="password" 
+                            id="password" 
+                            required
+                            placeholder="••••••••••••••••" 
+                            class="cyber-input w-full pl-10 pr-11 py-3 rounded text-sm"
+                        >
+                        <button 
+                            type="button" 
+                            id="toggle-pass"
+                            class="absolute inset-y-0 right-0 pr-3 flex items-center text-emerald-600 hover:text-neonGreen"
+                            title="Tampilkan/Sembunyikan Sandi"
+                        >
+                            <i data-lucide="eye" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button 
+                    type="submit" 
+                    class="cyber-btn w-full mt-2 py-3 px-4 rounded bg-neonGreen text-black font-bold text-sm tracking-widest uppercase hover:bg-[#33ff66] shadow-[0_0_20px_rgba(0,255,65,0.3)] flex items-center justify-center gap-2"
+                >
+                    <i data-lucide="unlock" class="w-4 h-4"></i>
+                    <span>DEKRIPSI &amp; MASUK SISTEM</span>
+                </button>
+            </form>
+
+            <!-- Footer Gerbang -->
+            <div class="mt-6 pt-4 border-t border-borderDim flex items-center justify-between text-[11px] text-emerald-600">
+                <span>TOR CIRCUIT: <strong class="text-emerald-400">CONNECTED</strong></span>
+                <span id="login-clock">00:00:00 WIB</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- DASHBOARD UTAMA ESCROW (TERSEMBUNYI SEBELUM LOGIN)                    -->
+    <!-- ===================================================================== -->
+    <div id="dashboard-screen" class="hidden flex-col min-h-screen relative z-10">
+        
+        <!-- Top Navigation Bar -->
+        <header class="sticky top-0 z-30 bg-[#050807]/95 border-b border-borderDim backdrop-blur-md">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+                <!-- Brand -->
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded bg-emerald-950 border border-neonGreen/50 flex items-center justify-center">
+                        <i data-lucide="shield-alert" class="w-5 h-5 text-neonGreen"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <h1 class="font-cyber font-bold text-lg tracking-wider neon-text-green leading-none">
+                                VOID_ESCROW
+                            </h1>
+                            <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950/80 text-neonCyan border border-cyan-700/40">
+                                PIHAK KETIGA
+                            </span>
+                        </div>
+                        <p class="text-[11px] text-emerald-500/80 mt-0.5 hidden sm:block">
+                            Brankas Penengah Transaksi Zero-Trust // Anti-Scam Protocol
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Status Jaringan & Operator -->
+                <div class="flex items-center gap-3 sm:gap-5 text-xs">
+                    <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded bg-black/70 border border-borderDim text-emerald-400">
+                        <span class="w-2 h-2 rounded-full bg-neonGreen blink-dot"></span>
+                        <span>RELAY: <strong id="relay-node" class="text-neonCyan">NL-TOR-774</strong></span>
+                    </div>
+
+                    <div class="hidden md:block text-right">
+                        <div class="text-emerald-300 font-semibold" id="live-clock">00:00:00 WIB</div>
+                        <div class="text-[10px] text-emerald-600">OPERATOR: <span class="text-neonGreen">raihan2008</span></div>
+                    </div>
+
+                    <button 
+                        onclick="logoutSystem()" 
+                        class="cyber-btn px-3 py-2 rounded bg-red-950/60 hover:bg-red-900/80 text-neonRed border border-red-800/60 text-xs font-semibold flex items-center gap-1.5"
+                    >
+                        <i data-lucide="power" class="w-3.5 h-3.5"></i>
+                        <span>KUNCI SESI</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Konten Utama -->
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+            <!-- 1. PANEL STATISTIK VAULT REAL-TIME -->
+            <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Total Dana Ditahan -->
+                <div class="cyber-box rounded-lg p-4 border-l-2 border-l-neonGreen">
+                    <div class="flex items-center justify-between text-xs text-emerald-400/80 mb-1">
+                        <span>DANA DITAHAN (VAULT)</span>
+                        <i data-lucide="lock" class="w-4 h-4 text-neonGreen"></i>
+                    </div>
+                    <div id="stat-vault" class="text-xl sm:text-2xl font-bold neon-text-green truncate">
+                        Rp 0
+                    </div>
+                    <div class="text-[11px] text-emerald-600 mt-1">
+                        Aman di brankas pihak ketiga
+                    </div>
+                </div>
+
+                <!-- Transaksi Aktif -->
+                <div class="cyber-box rounded-lg p-4 border-l-2 border-l-neonCyan">
+                    <div class="flex items-center justify-between text-xs text-cyan-400/80 mb-1">
+                        <span>KONTRAK BERJALAN</span>
+                        <i data-lucide="activity" class="w-4 h-4 text-neonCyan"></i>
+                    </div>
+                    <div id="stat-active" class="text-xl sm:text-2xl font-bold neon-text-cyan">
+                        0 Kontrak
+                    </div>
+                    <div class="text-[11px] text-emerald-600 mt-1">
+                        Menunggu konfirmasi / pengiriman
+                    </div>
+                </div>
+
+                <!-- Transaksi Selesai -->
+                <div class="cyber-box rounded-lg p-4 border-l-2 border-l-emerald-500">
+                    <div class="flex items-center justify-between text-xs text-emerald-400/80 mb-1">
+                        <span>TRANSAKSI SELESAI</span>
+                        <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+                    </div>
+                    <div id="stat-completed" class="text-xl sm:text-2xl font-bold text-emerald-300">
+                        0 Sukses
+                    </div>
+                    <div id="stat-volume" class="text-[11px] text-emerald-600 mt-1 truncate">
+                        Total cair: Rp 0
+                    </div>
+                </div>
+
+                <!-- Status Sengketa / Keamanan -->
+                <div class="cyber-box rounded-lg p-4 border-l-2 border-l-neonAmber">
+                    <div class="flex items-center justify-between text-xs text-amber-400/80 mb-1">
+                        <span>SENGKETA / DISPUTE</span>
+                        <i data-lucide="alert-triangle" class="w-4 h-4 text-neonAmber"></i>
+                    </div>
+                    <div id="stat-dispute" class="text-xl sm:text-2xl font-bold text-neonAmber">
+                        0 Kasus
+                    </div>
+                    <div class="text-[11px] text-emerald-600 mt-1">
+                        Intervensi penengah aktif
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. PANDUAN SINGKAT ALUR ANTI-PENIPUAN -->
+            <section class="cyber-box rounded-lg p-4 bg-gradient-to-r from-[#09120e] to-[#070c0a]">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div class="flex items-center gap-2 text-xs font-bold text-neonCyan uppercase tracking-wider">
+                        <i data-lucide="cpu" class="w-4 h-4"></i>
+                        <span>PROTOKOL KEAMANAN 4-TAHAP:</span>
+                    </div>
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 text-[11px] flex-1">
+                        <div class="px-2.5 py-1.5 rounded bg-black/60 border border-borderDim text-emerald-300">
+                            <span class="text-neonGreen font-bold">01.</span> Buat Kontrak &amp; ID Unik
+                        </div>
+                        <div class="px-2.5 py-1.5 rounded bg-black/60 border border-borderDim text-emerald-300">
+                            <span class="text-neonGreen font-bold">02.</span> Pembeli Transfer ke Rekber
+                        </div>
+                        <div class="px-2.5 py-1.5 rounded bg-black/60 border border-borderDim text-emerald-300">
+                            <span class="text-neonGreen font-bold">03.</span> Penjual Kirim Barang/Jasa
+                        </div>
+                        <div class="px-2.5 py-1.5 rounded bg-black/60 border border-borderDim text-emerald-300">
+                            <span class="text-neonGreen font-bold">04.</span> Pembeli ACC &rarr; Dana Cair
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. GRID UTAMA: FORM BUAT KONTRAK + DAFTAR TRANSAKSI & LOG -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                <!-- KOLOM KIRI (4 Kolom): FORM KONTRAK BARU & LIVE TERMINAL LOG -->
+                <div class="lg:col-span-4 space-y-6">
+                    
+                    <!-- Form Buat Kontrak Escrow -->
+                    <div class="cyber-box rounded-lg p-5 border-t-2 border-t-neonCyan">
+                        <div class="flex items-center justify-between mb-4 pb-3 border-b border-borderDim">
+                            <h2 class="font-bold text-sm tracking-wider uppercase neon-text-cyan flex items-center gap-2">
+                                <i data-lucide="file-plus-2" class="w-4 h-4"></i>
+                                <span>BUAT KONTRAK REKBER</span>
+                            </h2>
+                            <span class="text-[10px] text-emerald-500">NEW_TX</span>
+                        </div>
+
+                        <form id="escrow-form" class="space-y-3.5">
+                            <div>
+                                <label class="block text-[11px] text-emerald-400 uppercase mb-1">Judul Barang / Jasa *</label>
+                                <input type="text" id="tx-title" required placeholder="Contoh: Akun Game / Jasa Web / Laptop" class="cyber-input w-full px-3 py-2 rounded text-xs">
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[11px] text-emerald-400 uppercase mb-1">Pembeli (Buyer) *</label>
+                                    <input type="text" id="tx-buyer" required placeholder="@username_pembeli" class="cyber-input w-full px-3 py-2 rounded text-xs">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] text-emerald-400 uppercase mb-1">Penjual (Seller) *</label>
+                                    <input type="text" id="tx-seller" required placeholder="@username_penjual" class="cyber-input w-full px-3 py-2 rounded text-xs">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[11px] text-emerald-400 uppercase mb-1">Nominal (Rp) *</label>
+                                    <input type="number" id="tx-amount" required min="1000" step="1000" placeholder="500000" class="cyber-input w-full px-3 py-2 rounded text-xs">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] text-emerald-400 uppercase mb-1">Fee Admin (2%)</label>
+                                    <input type="text" id="tx-fee-preview" readonly value="Rp 0" class="w-full px-3 py-2 rounded text-xs bg-black/50 border border-borderDim text-neonCyan font-semibold">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] text-emerald-400 uppercase mb-1">Syarat &amp; Ketentuan Perjanjian</label>
+                                <textarea id="tx-terms" rows="2" placeholder="Contoh: Garansi 24 jam, data wajib full akses, no refund jika sesuai..." class="cyber-input w-full px-3 py-2 rounded text-xs resize-none"></textarea>
+                            </div>
+
+                            <button type="submit" class="cyber-btn w-full py-2.5 px-4 rounded bg-neonCyan text-black font-bold text-xs tracking-wider uppercase hover:bg-[#4df7ff] shadow-[0_0_15px_rgba(0,243,255,0.25)] flex items-center justify-center gap-2">
+                                <i data-lucide="shield-plus" class="w-4 h-4"></i>
+                                <span>TERBITKAN KONTRAK ESCROW</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Live Terminal Activity Feed -->
+                    <div class="cyber-box rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-3 pb-2 border-b border-borderDim">
+                            <div class="flex items-center gap-2 text-xs font-bold text-neonGreen">
+                                <i data-lucide="terminal-square" class="w-4 h-4"></i>
+                                <span>SYSTEM AUDIT LOG</span>
+                            </div>
+                            <button onclick="resetDemoData()" class="text-[10px] text-emerald-600 hover:text-neonAmber underline" title="Kembalikan data contoh awal">
+                                Reset Data Demo
+                            </button>
+                        </div>
+                        <div id="system-logs" class="h-56 overflow-y-auto space-y-2 text-[11px] font-mono pr-1">
+                            <!-- Log entries injected by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KOLOM KANAN (8 Kolom): MANAJEMEN TRANSAKSI AKTIF & RIWAYAT -->
+                <div class="lg:col-span-8 space-y-4">
+                    
+                    <!-- Bar Pencarian & Filter -->
+                    <div class="cyber-box rounded-lg p-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+                        <div class="relative flex-1">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-emerald-600">
+                                <i data-lucide="search" class="w-4 h-4"></i>
+                            </span>
+                            <input 
+                                type="text" 
+                                id="search-input" 
+                                placeholder="Cari ID Kontrak (ESC-...), Pembeli, Penjual, atau Barang..." 
+                                class="cyber-input w-full pl-9 pr-3 py-2 rounded text-xs"
+                            >
+                        </div>
+
+                        <div class="flex flex-wrap gap-1.5">
+                            <button onclick="setFilter('ALL')" data-filter="ALL" class="filter-btn active px-2.5 py-1.5 rounded text-[11px] font-semibold border border-neonGreen bg-neonGreen/15 text-neonGreen">
+                                SEMUA
+                            </button>
+                            <button onclick="setFilter('ACTIVE')" data-filter="ACTIVE" class="filter-btn px-2.5 py-1.5 rounded text-[11px] font-semibold border border-borderDim text-emerald-400 hover:border-neonCyan">
+                                AKTIF
+                            </button>
+                            <button onclick="setFilter('DISPUTE')" data-filter="DISPUTE" class="filter-btn px-2.5 py-1.5 rounded text-[11px] font-semibold border border-borderDim text-emerald-400 hover:border-neonAmber">
+                                SENGKETA
+                            </button>
+                            <button onclick="setFilter('COMPLETED')" data-filter="COMPLETED" class="filter-btn px-2.5 py-1.5 rounded text-[11px] font-semibold border border-borderDim text-emerald-400 hover:border-emerald-400">
+                                SELESAI
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Daftar Kartu Transaksi Escrow -->
+                    <div id="transactions-list" class="space-y-4">
+                        <!-- Transaction cards injected by JS -->
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="border-t border-borderDim py-4 px-6 text-center text-[11px] text-emerald-700 mt-8">
+            VOID_ESCROW PROTOCOL // ZERO-TRUST THIRD PARTY ENGINE // LOCAL ENCRYPTED STORAGE ACTIVE
+        </footer>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL INSPEKSI KONTRAK & BUKTI DIGITAL                                -->
+    <!-- ===================================================================== -->
+    <div id="detail-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/85 backdrop-blur-sm">
+        <div class="cyber-box rounded-lg w-full max-w-2xl max-h-[90vh] flex flex-col border-t-2 border-t-neonGreen overflow-hidden">
+            <!-- Modal Header -->
+            <div class="px-5 py-4 border-b border-borderDim flex items-center justify-between bg-[#070c0a]">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="file-code-2" class="w-5 h-5 text-neonGreen"></i>
+                    <h3 id="modal-contract-id" class="font-bold text-sm sm:text-base neon-text-green">ESC-0000-0000</h3>
+                </div>
+                <button onclick="closeModal()" class="text-emerald-500 hover:text-neonRed p-1">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div id="modal-body" class="p-5 overflow-y-auto space-y-4 text-xs">
+                <!-- Content injected by JS -->
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="px-5 py-3 border-t border-borderDim bg-[#070c0a] flex flex-wrap items-center justify-between gap-2">
+                <button id="btn-copy-receipt" class="cyber-btn px-3.5 py-2 rounded bg-emerald-950 hover:bg-emerald-900 border border-neonGreen/50 text-neonGreen text-xs font-semibold flex items-center gap-1.5">
+                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                    <span>SALIN STRUK KONTRAK</span>
+                </button>
+                <button onclick="closeModal()" class="px-4 py-2 rounded bg-black border border-borderDim text-emerald-400 hover:text-white text-xs">
+                    TUTUP
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- JAVASCRIPT ENGINE                                                     -->
+    <!-- ===================================================================== -->
+    <script>
+        // =========================================================================
+        // KONFIGURASI KEAMANAN & KREDENSIAL EKSKLUSIF
+        // =========================================================================
+        const AUTH_CONFIG = {
+            username: "raihan2008",
+            password: "wppiwipw2008",
+            sessionKey: "void_escrow_auth_session_v1",
+            storageKey: "void_escrow_transactions_v1",
+            logKey: "void_escrow_logs_v1"
+        };
+
+        // Status Transaksi:
+        // 'WAITING_PAYMENT' -> Menunggu Pembeli transfer ke Pihak Ketiga
+        // 'FUNDS_HELD'      -> Dana sudah ditahan Pihak Ketiga, Penjual kirim barang
+        // 'SHIPPED'         -> Barang dikirim, menunggu konfirmasi Pembeli
+        // 'DISPUTE'         -> Sengketa ditangani Admin Pihak Ketiga
+        // 'COMPLETED'       -> Selesai, dana cair ke Penjual
+        // 'REFUNDED'        -> Sengketa dimenangkan Pembeli, dana dikembalikan
+
+        let transactions = [];
+        let systemLogs = [];
+        let currentFilter = 'ALL';
+        let searchQuery = '';
+
+        // =========================================================================
+        // INISIALISASI SAAT HALAMAN DIMUAT
+        // =========================================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            startClocks();
+            rotateRelayNodes();
+            loadStorageData();
+            checkExistingSession();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            // Form Login
+            const loginForm = document.getElementById('login-form');
+            loginForm.addEventListener('submit', handleLogin);
+
+            // Toggle Password Visibility
+            const togglePassBtn = document.getElementById('toggle-pass');
+            togglePassBtn.addEventListener('click', () => {
+                const passInput = document.getElementById('password');
+                const isPass = passInput.type === 'password';
+                passInput.type = isPass ? 'text' : 'password';
+                togglePassBtn.innerHTML = `<i data-lucide="${isPass ? 'eye-off' : 'eye'}" class="w-4 h-4"></i>`;
+                lucide.createIcons();
+            });
+
+            // Hitung Otomatis Fee Admin 2%
+            const amountInput = document.getElementById('tx-amount');
+            amountInput.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value) || 0;
+                const fee = Math.round(val * 0.02);
+                document.getElementById('tx-fee-preview').value = formatRupiah(fee);
+            });
+
+            // Form Buat Kontrak Escrow
+            const escrowForm = document.getElementById('escrow-form');
+            escrowForm.addEventListener('submit', handleCreateContract);
+
+            // Pencarian Real-time
+            const searchInput = document.getElementById('search-input');
+            searchInput.addEventListener('input', (e) => {
+                searchQuery = e.target.value.toLowerCase().trim();
+                renderTransactions();
+            });
+        }
+
+        // =========================================================================
+        // SISTEM OTENTIKASI (HANYA raihan2008 / wppiwipw2008)
+        // =========================================================================
+        function checkExistingSession() {
+            const isAuth = sessionStorage.getItem(AUTH_CONFIG.sessionKey);
+            if (isAuth === 'true') {
+                showDashboard();
+            }
+        }
+
+        function handleLogin(e) {
+            e.preventDefault();
+            const userVal = document.getElementById('username').value.trim();
+            const passVal = document.getElementById('password').value;
+            const msgBox = document.getElementById('login-terminal-msg');
+            const loginCard = document.getElementById('login-card');
+
+            if (userVal === AUTH_CONFIG.username && passVal === AUTH_CONFIG.password) {
+                sessionStorage.setItem(AUTH_CONFIG.sessionKey, 'true');
+                msgBox.innerHTML = `<span class="text-neonGreen">[ACCESS GRANTED]</span> Kunci valid. Membuka brankas terenkripsi...`;
+                msgBox.classList.replace('border-borderDim', 'border-neonGreen');
+                
+                addSystemLog(`Operator [${userVal}] berhasil login ke terminal Escrow.`);
+                showToast('Akses Diterima. Selamat datang, raihan2008.', 'success');
+                
+                setTimeout(() => {
+                    showDashboard();
+                }, 450);
+            } else {
+                loginCard.classList.remove('shake-error');
+                void loginCard.offsetWidth; // trigger reflow
+                loginCard.classList.add('shake-error');
+
+                msgBox.innerHTML = `<span class="text-neonRed">[ACCESS DENIED // ERR_403]</span> Kredensial ditolak oleh kernel keamanan! Percobaan dicatat.`;
+                msgBox.classList.remove('border-borderDim', 'border-neonGreen');
+                msgBox.classList.add('border-neonRed');
+                document.getElementById('password').value = '';
+                showToast('ID Operator atau Kunci Akses salah!', 'error');
+            }
+        }
+
+        function showDashboard() {
+            document.getElementById('login-screen').classList.add('hidden');
+            const dash = document.getElementById('dashboard-screen');
+            dash.classList.remove('hidden');
+            dash.classList.add('flex');
+            renderAll();
+        }
+
+        function logoutSystem() {
+            sessionStorage.removeItem(AUTH_CONFIG.sessionKey);
+            addSystemLog('Sesi operator dikunci secara manual.');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('dashboard-screen').classList.add('hidden');
+            document.getElementById('dashboard-screen').classList.remove('flex');
+            document.getElementById('login-screen').classList.remove('hidden');
+            showToast('Sesi dikunci. Brankas aman.', 'info');
+        }
+
+        // =========================================================================
+        // MANAJEMEN DATA & LOCALSTORAGE
+        // =========================================================================
+        function loadStorageData() {
+            const savedTx = localStorage.getItem(AUTH_CONFIG.storageKey);
+            const savedLogs = localStorage.getItem(AUTH_CONFIG.logKey);
+
+            if (savedTx) {
+                transactions = JSON.parse(savedTx);
+            } else {
+                transactions = getInitialDemoData();
+                saveTransactions();
+            }
+
+            if (savedLogs) {
+                systemLogs = JSON.parse(savedLogs);
+            } else {
+                systemLogs = [
+                    { time: getCurrentTimestamp(), text: 'Node Tor terhubung. Brankas Escrow siap beroperasi.' },
+                    { time: getCurrentTimestamp(), text: 'Memuat kontrak aktif dari penyimpanan lokal terenkripsi.' }
+                ];
+                saveLogs();
+            }
+        }
+
+        function saveTransactions() {
+            localStorage.setItem(AUTH_CONFIG.storageKey, JSON.stringify(transactions));
+        }
+
+        function saveLogs() {
+            localStorage.setItem(AUTH_CONFIG.logKey, JSON.stringify(systemLogs.slice(0, 50)));
+        }
+
+        function resetDemoData() {
+            transactions = getInitialDemoData();
+            saveTransactions();
+            addSystemLog('Data kontrak direset ke konfigurasi demo awal.');
+            renderAll();
+            showToast('Data demo berhasil dipulihkan.', 'info');
+        }
+
+        function getInitialDemoData() {
+            return [
+                {
+                    id: 'ESC-8841-X9A',
+                    title: 'MacBook Pro M2 16GB/512GB Second Mulus',
+                    buyer: '@rizky_tech',
+                    seller: '@gadget_store_id',
+                    amount: 14500000,
+                    fee: 290000,
+                    status: 'FUNDS_HELD',
+                    terms: 'Wajib packing kayu + asuransi. Dana cair setelah unit dicek 1x24 jam tanpa kendala.',
+                    hash: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+                    createdAt: '27/11/2026 08:10 WIB',
+                    history: [
+                        { time: '27/11/2026 08:10', event: 'Kontrak dibuat oleh Pihak Ketiga (raihan2008).' },
+                        { time: '27/11/2026 08:22', event: 'Dana Rp 14.500.000 diterima & DITAHAN di brankas Rekber.' }
+                    ]
+                },
+                {
+                    id: 'ESC-4092-K3M',
+                    title: 'Jasa Pembuatan Smart Contract & Audit Web3',
+                    buyer: '@crypto_ventures',
+                    seller: '@dev_shadow',
+                    amount: 6000000,
+                    fee: 120000,
+                    status: 'SHIPPED',
+                    terms: 'Source code diserahkan via private repository GitHub beserta dokumentasi deploy.',
+                    hash: '4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a',
+                    createdAt: '26/11/2026 19:45 WIB',
+                    history: [
+                        { time: '26/11/2026 19:45', event: 'Kontrak dibuat.' },
+                        { time: '26/11/2026 20:01', event: 'Dana Rp 6.000.000 diverifikasi masuk ke Escrow.' },
+                        { time: '27/11/2026 07:30', event: 'Penjual menandai pekerjaan/repo telah dikirim ke Pembeli.' }
+                    ]
+                },
+                {
+                    id: 'ESC-1129-Z7P',
+                    title: 'Akun Valorant Radiant Full Skin + Email Utama',
+                    buyer: '@valor_king',
+                    seller: '@pro_seller99',
+                    amount: 2250000,
+                    fee: 45000,
+                    status: 'WAITING_PAYMENT',
+                    terms: 'Wajib ganti email & password bersama admin saat serah terima.',
+                    hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+                    createdAt: '27/11/2026 09:02 WIB',
+                    history: [
+                        { time: '27/11/2026 09:02', event: 'Kontrak diterbitkan. Menunggu pembeli mentransfer dana ke Rekber.' }
+                    ]
+                },
+                {
+                    id: 'ESC-7730-V2B',
+                    title: 'Lensa Sony FE 24-70mm f/2.8 GM',
+                    buyer: '@studio_visual',
+                    seller: '@kamera_bekas',
+                    amount: 18000000,
+                    fee: 360000,
+                    status: 'COMPLETED',
+                    terms: 'Bebas jamur dan fog, fungsi AF normal 100%.',
+                    hash: '2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae',
+                    createdAt: '25/11/2026 14:15 WIB',
+                    history: [
+                        { time: '25/11/2026 14:15', event: 'Kontrak dibuat.' },
+                        { time: '25/11/2026 14:30', event: 'Dana Rp 18.000.000 ditahan di brankas.' },
+                        { time: '26/11/2026 11:00', event: 'Barang diterima pembeli dalam kondisi sesuai.' },
+                        { time: '26/11/2026 11:05', event: 'SELESAI: Dana Rp 18.000.000 dicairkan ke @kamera_bekas.' }
+                    ]
+                }
+            ];
+        }
+
+        // =========================================================================
+        // PEMBUATAN & MANAJEMEN ALUR TRANSAKSI ESCROW
+        // =========================================================================
+        function handleCreateContract(e) {
+            e.preventDefault();
+            const title = document.getElementById('tx-title').value.trim();
+            const buyer = document.getElementById('tx-buyer').value.trim();
+            const seller = document.getElementById('tx-seller').value.trim();
+            const amount = parseFloat(document.getElementById('tx-amount').value);
+            const terms = document.getElementById('tx-terms').value.trim() || 'Standar keamanan pihak ketiga: Dana cair setelah pembeli mengonfirmasi kesesuaian barang/jasa.';
+
+            if (!title || !buyer || !seller || isNaN(amount) || amount < 1000) {
+                showToast('Lengkapi semua kolom kontrak dengan nominal valid!', 'error');
+                return;
+            }
+
+            const fee = Math.round(amount * 0.02);
+            const contractId = generateContractId();
+            const now = getCurrentTimestamp();
+
+            const newTx = {
+                id: contractId,
+                title,
+                buyer,
+                seller,
+                amount,
+                fee,
+                status: 'WAITING_PAYMENT',
+                terms,
+                hash: generateFakeSha256(contractId + buyer + seller + amount + Date.now()),
+                createdAt: now,
+                history: [
+                    { time: now, event: `Kontrak [${contractId}] diterbitkan. Menunggu dana dari ${buyer}.` }
+                ]
+            };
+
+            transactions.unshift(newTx);
+            saveTransactions();
+            
+            document.getElementById('escrow-form').reset();
+            document.getElementById('tx-fee-preview').value = 'Rp 0';
+
+            addSystemLog(`Kontrak baru ${contractId} dibuat (${buyer} <-> ${seller}) senilai ${formatRupiah(amount)}.`);
+            renderAll();
+            showToast(`Kontrak ${contractId} berhasil dibuat!`, 'success');
+        }
+
+        function advanceTransactionStatus(id, nextStatus) {
+            const tx = transactions.find(item => item.id === id);
+            if (!tx) return;
+
+            const now = getCurrentTimestamp();
+            tx.status = nextStatus;
+
+            let logMsg = '';
+            if (nextStatus === 'FUNDS_HELD') {
+                logMsg = `Dana ${formatRupiah(tx.amount)} dari ${tx.buyer} dikonfirmasi masuk & DITAHAN Pihak Ketiga.`;
+                showToast(`Dana ${tx.id} resmi ditahan di Brankas!`, 'success');
+            } else if (nextStatus === 'SHIPPED') {
+                logMsg = `Penjual (${tx.seller}) menandai barang/jasa telah dikirim ke ${tx.buyer}.`;
+                showToast(`Status ${tx.id}: Barang/Jasa Dikirim.`, 'info');
+            } else if (nextStatus === 'COMPLETED') {
+                logMsg = `Pembeli menyetujui transaksi. Dana ${formatRupiah(tx.amount)} DICAIRKAN ke ${tx.seller}.`;
+                showToast(`Transaksi ${tx.id} Selesai! Dana cair ke Penjual.`, 'success');
+            } else if (nextStatus === 'DISPUTE') {
+                logMsg = `PERINGATAN: Sengketa diajukan pada ${tx.id}! Dana dibekukan untuk investigasi Admin.`;
+                showToast(`Sengketa aktif pada ${tx.id}. Dana dibekukan!`, 'warning');
+            } else if (nextStatus === 'REFUNDED') {
+                logMsg = `Putusan Sengketa: Dana ${formatRupiah(tx.amount)} DIKEMBALIKAN penuh ke Pembeli (${tx.buyer}).`;
+                showToast(`Dana ${tx.id} dikembalikan ke Pembeli.`, 'info');
+            }
+
+            tx.history.push({ time: now, event: logMsg });
+            saveTransactions();
+            addSystemLog(`[${tx.id}] ${logMsg}`);
+            renderAll();
+        }
+
+        function deleteTransaction(id) {
+            transactions = transactions.filter(item => item.id !== id);
+            saveTransactions();
+            addSystemLog(`Arsip kontrak [${id}] dihapus oleh operator.`);
+            renderAll();
+            showToast(`Kontrak ${id} dihapus dari daftar.`, 'info');
+        }
+
+        // =========================================================================
+        // RENDER UI: STATISTIK, DAFTAR KONTRAK, LOG, & MODAL
+        // =========================================================================
+        function renderAll() {
+            renderStats();
+            renderTransactions();
+            renderLogs();
+        }
+
+        function renderStats() {
+            // Dana ditahan = status FUNDS_HELD, SHIPPED, atau DISPUTE
+            const heldStatuses = ['FUNDS_HELD', 'SHIPPED', 'DISPUTE'];
+            const vaultTotal = transactions
+                .filter(t => heldStatuses.includes(t.status))
+                .reduce((sum, t) => sum + t.amount, 0);
+
+            const activeCount = transactions.filter(t => ['WAITING_PAYMENT', 'FUNDS_HELD', 'SHIPPED'].includes(t.status)).length;
+            const completedTxs = transactions.filter(t => t.status === 'COMPLETED');
+            const completedVolume = completedTxs.reduce((sum, t) => sum + t.amount, 0);
+            const disputeCount = transactions.filter(t => t.status === 'DISPUTE').length;
+
+            document.getElementById('stat-vault').textContent = formatRupiah(vaultTotal);
+            document.getElementById('stat-active').textContent = `${activeCount} Kontrak`;
+            document.getElementById('stat-completed').textContent = `${completedTxs.length} Sukses`;
+            document.getElementById('stat-volume').textContent = `Total cair: ${formatRupiah(completedVolume)}`;
+            document.getElementById('stat-dispute').textContent = `${disputeCount} Kasus`;
+        }
+
+        function setFilter(filterName) {
+            currentFilter = filterName;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if (btn.dataset.filter === filterName) {
+                    btn.className = 'filter-btn active px-2.5 py-1.5 rounded text-[11px] font-semibold border border-neonGreen bg-neonGreen/15 text-neonGreen';
+                } else {
+                    btn.className = 'filter-btn px-2.5 py-1.5 rounded text-[11px] font-semibold border border-borderDim text-emerald-400 hover:border-neonCyan';
+                }
+            });
+            renderTransactions();
+        }
+
+        function renderTransactions() {
+            const container = document.getElementById('transactions-list');
+            
+            const filtered = transactions.filter(tx => {
+                const matchesSearch = 
+                    tx.id.toLowerCase().includes(searchQuery) ||
+                    tx.title.toLowerCase().includes(searchQuery) ||
+                    tx.buyer.toLowerCase().includes(searchQuery) ||
+                    tx.seller.toLowerCase().includes(searchQuery);
+
+                if (!matchesSearch) return false;
+
+                if (currentFilter === 'ACTIVE') {
+                    return ['WAITING_PAYMENT', 'FUNDS_HELD', 'SHIPPED'].includes(tx.status);
+                }
+                if (currentFilter === 'DISPUTE') {
+                    return tx.status === 'DISPUTE';
+                }
+                if (currentFilter === 'COMPLETED') {
+                    return ['COMPLETED', 'REFUNDED'].includes(tx.status);
+                }
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="cyber-box rounded-lg p-10 text-center">
+                        <i data-lucide="database-zap" class="w-10 h-10 text-emerald-700 mx-auto mb-3"></i>
+                        <p class="text-sm text-emerald-400 font-semibold">Tidak ada kontrak transaksi ditemukan.</p>
+                        <p class="text-xs text-emerald-600 mt-1">Ubah filter pencarian atau buat kontrak rekber baru di panel kiri.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = filtered.map(tx => {
+                const badge = getStatusBadge(tx.status);
+                const actionButtons = getActionButtons(tx);
+                const progressStep = getProgressStep(tx.status);
+
+                return `
+                    <div class="cyber-box rounded-lg p-4 sm:p-5 transition-all">
+                        <!-- Header Kartu -->
+                        <div class="flex flex-wrap items-start justify-between gap-2 pb-3 border-b border-borderDim">
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="font-bold text-xs sm:text-sm text-neonCyan tracking-wider">${tx.id}</span>
+                                    ${badge}
+                                </div>
+                                <h3 class="font-bold text-sm sm:text-base text-white mt-1.5">${escapeHtml(tx.title)}</h3>
+                            </div>
+                            <div class="text-left sm:text-right">
+                                <div class="text-base sm:text-lg font-extrabold neon-text-green">${formatRupiah(tx.amount)}</div>
+                                <div class="text-[11px] text-emerald-600">Fee Admin: ${formatRupiah(tx.fee)}</div>
+                            </div>
+                        </div>
+
+                        <!-- Pihak Terlibat -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 my-3 text-xs">
+                            <div class="p-2.5 rounded bg-black/60 border border-borderDim flex items-center justify-between">
+                                <span class="text-emerald-600">PEMBELI:</span>
+                                <span class="font-semibold text-emerald-300">${escapeHtml(tx.buyer)}</span>
+                            </div>
+                            <div class="p-2.5 rounded bg-black/60 border border-borderDim flex items-center justify-between">
+                                <span class="text-emerald-600">PENJUAL:</span>
+                                <span class="font-semibold text-cyan-300">${escapeHtml(tx.seller)}</span>
+                            </div>
+                        </div>
+
+                        <!-- Progress Bar 4 Tahap -->
+                        <div class="my-3">
+                            <div class="flex justify-between text-[10px] text-emerald-500 mb-1">
+                                <span class="${progressStep >= 1 ? 'text-neonGreen font-bold' : ''}">1. Kontrak</span>
+                                <span class="${progressStep >= 2 ? 'text-neonGreen font-bold' : ''}">2. Dana Ditahan</span>
+                                <span class="${progressStep >= 3 ? 'text-neonGreen font-bold' : ''}">3. Dikirim</span>
+                                <span class="${progressStep >= 4 ? 'text-neonGreen font-bold' : ''}">4. Selesai</span>
+                            </div>
+                            <div class="w-full h-1.5 bg-black rounded-full overflow-hidden border border-borderDim">
+                                <div class="h-full transition-all duration-500 ${tx.status === 'DISPUTE' ? 'bg-neonAmber' : tx.status === 'REFUNDED' ? 'bg-neonRed' : 'bg-neonGreen'}" style="width: ${progressStep * 25}%"></div>
+                            </div>
+                        </div>
+
+                        <!-- Footer Aksi -->
+                        <div class="pt-3 border-t border-borderDim flex flex-wrap items-center justify-between gap-2">
+                            <button onclick="openContractModal('${tx.id}')" class="px-3 py-1.5 rounded bg-black/80 hover:bg-emerald-950/60 border border-borderDim text-emerald-300 text-xs flex items-center gap-1.5">
+                                <i data-lucide="file-search" class="w-3.5 h-3.5 text-neonCyan"></i>
+                                <span>Audit &amp; Struk</span>
+                            </button>
+
+                            <div class="flex flex-wrap items-center gap-2">
+                                ${actionButtons}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            lucide.createIcons();
+        }
+
+        function getStatusBadge(status) {
+            const map = {
+                'WAITING_PAYMENT': `<span class="text-[10px] px-2 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-700">MENUNGGU DANA PEMBELI</span>`,
+                'FUNDS_HELD': `<span class="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-neonGreen border border-neonGreen/50">DANA DITAHAN REKBER</span>`,
+                'SHIPPED': `<span class="text-[10px] px-2 py-0.5 rounded bg-cyan-950 text-neonCyan border border-neonCyan/50">BARANG/JASA DIKIRIM</span>`,
+                'DISPUTE': `<span class="text-[10px] px-2 py-0.5 rounded bg-amber-950 text-neonAmber border border-neonAmber/60 animate-pulse">SENGKETA / DISPUTE</span>`,
+                'COMPLETED': `<span class="text-[10px] px-2 py-0.5 rounded bg-emerald-900/50 text-emerald-300 border border-emerald-600/50">SELESAI &amp; CAIR</span>`,
+                'REFUNDED': `<span class="text-[10px] px-2 py-0.5 rounded bg-red-950 text-neonRed border border-red-700/50">REFUND KE PEMBELI</span>`
+            };
+            return map[status] || '';
+        }
+
+        function getProgressStep(status) {
+            switch (status) {
+                case 'WAITING_PAYMENT': return 1;
+                case 'FUNDS_HELD': return 2;
+                case 'SHIPPED':
+                case 'DISPUTE': return 3;
+                case 'COMPLETED':
+                case 'REFUNDED': return 4;
+                default: return 1;
+            }
+        }
+
+        function getActionButtons(tx) {
+            if (tx.status === 'WAITING_PAYMENT') {
+                return `
+                    <button onclick="advanceTransactionStatus('${tx.id}', 'FUNDS_HELD')" class="cyber-btn px-3 py-1.5 rounded bg-neonGreen text-black font-bold text-xs hover:bg-[#33ff66] flex items-center gap-1">
+                        <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+                        <span>Konfirmasi Dana Masuk</span>
+                    </button>
+                    <button onclick="deleteTransaction('${tx.id}')" class="px-2.5 py-1.5 rounded bg-red-950/50 hover:bg-red-900/70 text-neonRed border border-red-900/50 text-xs" title="Batalkan Kontrak">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                `;
+            }
+            if (tx.status === 'FUNDS_HELD') {
+                return `
+                    <button onclick="advanceTransactionStatus('${tx.id}', 'SHIPPED')" class="cyber-btn px-3 py-1.5 rounded bg-neonCyan text-black font-bold text-xs hover:bg-[#4df7ff] flex items-center gap-1">
+                        <i data-lucide="send" class="w-3.5 h-3.5"></i>
+                        <span>Tandai Dikirim Penjual</span>
+                    </button>
+                    <button onclick="advanceTransactionStatus('${tx.id}', 'DISPUTE')" class="px-2.5 py-1.5 rounded bg-amber-950/60 hover:bg-amber-900/70 text-neonAmber border border-amber-700/50 text-xs">
+                        Sengketa
+                    </button>
+                `;
+            }
+            if (tx.status === 'SHIPPED') {
+                return `
+                    <button onclick="advanceTransactionStatus('${tx.id}', 'COMPLETED')" class="cyber-btn px-3 py-1.5 rounded bg-neonGreen text-black font-bold text-xs hover:bg-[#33ff66] flex items-center gap-1">
+                        <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+                        <span>ACC &amp; Cairkan Dana</span>
+                    </button>
+                    <button onclick="advanceTransactionStatus('${tx.id}', 'DISPUTE')" class="px-2.5 py-1.5 rounded bg-amber-950/60 hover:bg-amber-900/70 text-neonAmber border border-amber-700/50 text-xs">
+                        Ajukan Sengketa
+                    </button>
+                `;
+            }
+            if (tx.status === 'DISPUTE') {
+                return `
+                    <button onclick="advanceTransactionStatus('${tx.id}', 'COMPLETED')" class="cyber-btn px-2.5 py-1.5 rounded bg-emerald-900 hover:bg-emerald-800 text-neonGreen border border-neonGreen/40 text-xs font-semibold">
+                        Cairkan ke Penjual
+                    </button>
+                    <button onclick="advanceTransactionStatus('${tx.id}', 'REFUNDED')" class="cyber-btn px-2.5 py-1.5 rounded bg-red-950 hover:bg-red-900 text-neonRed border border-red-700/50 text-xs font-semibold">
+                        Refund ke Pembeli
+                    </button>
+                `;
+            }
+            return `
+                <span class="text-[11px] text-emerald-600 italic flex items-center gap-1">
+                    <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-500"></i>
+                    Kontrak Terkunci Permanen
+                </span>
+            `;
+        }
+
+        function renderLogs() {
+            const logContainer = document.getElementById('system-logs');
+            logContainer.innerHTML = systemLogs.map(log => `
+                <div class="border-l border-emerald-800 pl-2 py-0.5 leading-snug">
+                    <span class="text-neonCyan text-[10px]">[${log.time}]</span>
+                    <span class="text-emerald-300/90">${escapeHtml(log.text)}</span>
+                </div>
+            `).join('');
+        }
+
+        function addSystemLog(text) {
+            systemLogs.unshift({
+                time: getCurrentTimestamp(),
+                text
+            });
+            saveLogs();
+            if (!document.getElementById('dashboard-screen').classList.contains('hidden')) {
+                renderLogs();
+            }
+        }
+
+        // =========================================================================
+        // MODAL DETAIL KONTRAK & SALIN STRUK (EXEC COMMAND COPY)
+        // =========================================================================
+        function openContractModal(id) {
+            const tx = transactions.find(item => item.id === id);
+            if (!tx) return;
+
+            document.getElementById('modal-contract-id').textContent = `KONTRAK // ${tx.id}`;
+            
+            const historyHtml = tx.history.map(h => `
+                <div class="flex items-start gap-2 text-[11px] border-l-2 border-neonGreen/60 pl-2.5 py-1">
+                    <span class="text-neonCyan shrink-0">[${h.time}]</span>
+                    <span class="text-emerald-200">${escapeHtml(h.event)}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('modal-body').innerHTML = `
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="p-3 rounded bg-black/70 border border-borderDim">
+                        <div class="text-[10px] text-emerald-600">OBJEK TRANSAKSI</div>
+                        <div class="font-bold text-white mt-0.5">${escapeHtml(tx.title)}</div>
+                    </div>
+                    <div class="p-3 rounded bg-black/70 border border-borderDim">
+                        <div class="text-[10px] text-emerald-600">NILAI ESCROW &amp; FEE</div>
+                        <div class="font-bold neon-text-green mt-0.5">${formatRupiah(tx.amount)} <span class="text-emerald-500 font-normal">(Fee: ${formatRupiah(tx.fee)})</span></div>
+                    </div>
+                    <div class="p-3 rounded bg-black/70 border border-borderDim">
+                        <div class="text-[10px] text-emerald-600">PIHAK PEMBELI</div>
+                        <div class="font-semibold text-emerald-300 mt-0.5">${escapeHtml(tx.buyer)}</div>
+                    </div>
+                    <div class="p-3 rounded bg-black/70 border border-borderDim">
+                        <div class="text-[10px] text-emerald-600">PIHAK PENJUAL</div>
+                        <div class="font-semibold text-cyan-300 mt-0.5">${escapeHtml(tx.seller)}</div>
+                    </div>
+                </div>
+
+                <div class="p-3 rounded bg-black/70 border border-borderDim">
+                    <div class="text-[10px] text-emerald-600 mb-1">SYARAT &amp; KETENTUAN PERJANJIAN</div>
+                    <p class="text-emerald-200 leading-relaxed">${escapeHtml(tx.terms)}</p>
+                </div>
+
+                <div class="p-3 rounded bg-black/70 border border-borderDim">
+                    <div class="text-[10px] text-emerald-600 mb-1">SHA-256 INTEGRITY HASH</div>
+                    <code class="text-[11px] text-neonCyan break-all">${tx.hash}</code>
+                </div>
+
+                <div>
+                    <div class="text-[11px] font-bold text-neonGreen uppercase mb-2">JEJAK AUDIT (AUDIT TRAIL)</div>
+                    <div class="space-y-1.5 bg-black/50 p-3 rounded border border-borderDim">
+                        ${historyHtml}
+                    </div>
+                </div>
+            `;
+
+            // Tombol Salin Struk
+            const copyBtn = document.getElementById('btn-copy-receipt');
+            copyBtn.onclick = () => copyReceiptToClipboard(tx);
+
+            const modal = document.getElementById('detail-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            lucide.createIcons();
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('detail-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function copyReceiptToClipboard(tx) {
+            const receiptText = [
+                `=== VOID_ESCROW // BUKTI KONTRAK PIHAK KETIGA ===`,
+                `ID Kontrak : ${tx.id}`,
+                `Status     : ${tx.status}`,
+                `Objek      : ${tx.title}`,
+                `Pembeli    : ${tx.buyer}`,
+                `Penjual    : ${tx.seller}`,
+                `Nominal    : ${formatRupiah(tx.amount)} (Fee Admin: ${formatRupiah(tx.fee)})`,
+                `Syarat     : ${tx.terms}`,
+                `Hash SHA256: ${tx.hash}`,
+                `Operator   : raihan2008`,
+                `================================================`
+            ].join('\n');
+
+            const tempTextarea = document.createElement('textarea');
+            tempTextarea.value = receiptText;
+            document.body.appendChild(tempTextarea);
+            tempTextarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempTextarea);
+
+            showToast(`Struk kontrak ${tx.id} disalin ke clipboard!`, 'success');
+        }
+
+        // =========================================================================
+        // UTILITAS (JAM, FORMAT RUPIAH, TOAST, GENERATOR ID & HASH)
+        // =========================================================================
+        function formatRupiah(angka) {
+            return new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0
+            }).format(angka);
+        }
+
+        function generateContractId() {
+            const num = Math.floor(1000 + Math.random() * 9000);
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let suffix = '';
+            for (let i = 0; i < 3; i++) {
+                suffix += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return `ESC-${num}-${suffix}`;
+        }
+
+        function generateFakeSha256(seed) {
+            let hash = '';
+            const hex = '0123456789abcdef';
+            let val = 0;
+            for (let i = 0; i < seed.length; i++) {
+                val = (val * 31 + seed.charCodeAt(i)) % 1000000007;
+            }
+            for (let i = 0; i < 64; i++) {
+                val = (val * 1664525 + 1013904223 + i) % 4294967296;
+                hash += hex[val % 16];
+            }
+            return hash;
+        }
+
+        function getCurrentTimestamp() {
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        }
+
+        function startClocks() {
+            const update = () => {
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString('id-ID', { hour12: false }) + ' WIB';
+                const loginClock = document.getElementById('login-clock');
+                const liveClock = document.getElementById('live-clock');
+                if (loginClock) loginClock.textContent = timeStr;
+                if (liveClock) liveClock.textContent = timeStr;
+            };
+            update();
+            setInterval(update, 1000);
+        }
+
+        function rotateRelayNodes() {
+            const nodes = ['NL-TOR-774', 'CH-ONION-109', 'IS-VAULT-442', 'SE-DARK-918', 'DE-CRYPT-305'];
+            setInterval(() => {
+                const el = document.getElementById('relay-node');
+                if (el) {
+                    el.textContent = nodes[Math.floor(Math.random() * nodes.length)];
+                }
+            }, 9000);
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const styles = {
+                success: 'border-neonGreen bg-[#07140d] text-neonGreen',
+                error: 'border-neonRed bg-[#17070b] text-neonRed',
+                warning: 'border-neonAmber bg-[#171105] text-neonAmber',
+                info: 'border-neonCyan bg-[#061317] text-neonCyan'
+            };
+
+            toast.className = `pointer-events-auto p-3 rounded border shadow-lg text-xs font-mono flex items-center justify-between gap-2 transition-all duration-300 ${styles[type] || styles.info}`;
+            toast.innerHTML = `
+                <span>&gt; ${escapeHtml(message)}</span>
+            `;
+
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(15px)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+    </script>
+</body>
+</html>
